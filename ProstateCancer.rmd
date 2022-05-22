@@ -1,0 +1,663 @@
+---
+title: "TP1 - Statistical analysis and document mining"
+author: "Youssef BENHACHEM, Mouad BOUCHNAF, Amine EL BOUZID"
+date: "07/02/2022"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1 : Multiple regression on simulated data
+
+### Question 1
+```{r}
+set.seed(0)
+data <- rnorm(1206000)
+m <- matrix(data, nrow = 6000, ncol = 201)
+df <- data.frame(m)
+```
+
+### Question 2 
+The Gaussian multiple linear regression has the form :  
+$$ \boxed{X_1 = \beta_0 + \sum_{j=2}^{201} \beta_{j} X_j + \epsilon}$$
+In order to define the true regression model associated to the data, we see that the variables $X_i$ where $i \in \{1,...,201\}$ are independent. Consequently, $\forall i \in \{2,...,201\} : \beta_i = 0$, and thus the true regression model has the form : $$ \boxed{X_1 = \beta_0 + \epsilon}$$
+
+The RSS of the model without predictors will indeed be greater than that of the other model, since the model will struggle to fit the data. The model with predictors can be promising, this is what we are going to study.
+
+### Question 3
+```{r}
+reg <- lm(X1~., data = df)
+regOut <- capture.output(summary(reg))
+
+#This block of instructions will allow us to show the summary for
+#predictors whose p-values are <0.05 instead of showing all 200 predictors
+{
+for (i in 2:11){
+  print(regOut[i], quote = FALSE)
+} 
+print(regOut[104], quote = FALSE)
+print(regOut[135], quote = FALSE)
+print(regOut[146], quote = FALSE)
+print(regOut[151], quote = FALSE)
+print(regOut[158], quote = FALSE)
+print(regOut[179], quote = FALSE)
+print(regOut[182], quote = FALSE)
+print(regOut[187], quote = FALSE)
+print(regOut[210], quote = FALSE)
+for (i in 212:217){
+  print(regOut[i], quote = FALSE)
+}
+}
+
+```
+
+$\textbf{Number of coefficients assessed as significantly non-zero :}$ 
+
+```{r}
+#This function allows to count the number of coefficients from a model 
+#assessed as significantly non-zero at level alpha
+count_significance <- function(model, alpha){
+  counter <- 0
+  number_of_coeff <- length(model$coefficients)/4
+  #starting from 2 to ignore the intercept
+  for (i in 2:number_of_coeff){
+    p_value <- model$coefficients[i,4]
+    if (p_value < alpha){
+      counter <- counter + 1
+    }
+  }
+  print(counter)
+}
+
+#In our case, for model = summary(reg) and alpha = 5% : 
+count_significance(summary(reg), 0.05)
+```
+
+In view of the results obtained, we can deduce that the model which makes it possible to predict the first variable from the others $\textbf{is not suitable}$. Indeed, we notice that the p-value of the F-test is quite large (~0.48), which means that it is not significant and shows that the model does not make a good prediction. Also, the number of significantly non-zero coefficients at a level of 5% is 9 out of a total of 200 variables. These variables are thus not optimal for predicting the first one.
+
+### Question 4 
+
+We have that $X_{1,i}$ is a random distribution $\mathcal{N}(0,1)$ and $X_{2,i}$ is a random distribution $\mathcal{N}(0,10)$ for i $\in \{1,...,n\}$.
+
+Then ($X_{1,i}$, $X_{2,i}$) is a gaussian vector,  its probability density function has the form : $$f_{m,A}(z) = \frac{1}{(2\pi)^{\frac{n}{2}}\sqrt{|A|}}exp[\frac{-1}{2}(z-m)^TA^{-1}(z-m)]$$
+
+With dimension 2 we found that $Var(X_1) = \sigma^2$ and $Var(X_2) = 10\sigma^2$
+Thus $$Cov(X1,X2) = \begin{bmatrix}
+1 & 3 \\
+3 & 10 
+\end{bmatrix} \sigma^2 = C$$
+
+```{r}
+#Simulation
+n <- 1000
+X_1 <- rnorm(n)
+X_2 <- 3*X_1 + rnorm(n)
+Y <- X_2 + X_1 + 2 + rnorm(n)
+
+#plot 
+options(warn = -1)
+library(ggplot2)
+options(warn = getOption("warn"))
+data_to_plot <- data.frame(x = X_1, y = X_2)
+ggplot(data_to_plot,aes(x = x,y = y)) + geom_point(alpha = 0.05) + 
+  ggtitle("Distribution of points (X1[i], X2[i])") +
+  labs(x = "X1", y ="X2")
+```
+
+We see that it has a $\textbf{linear shape and the points are close to each others}$. This is due to the $\textbf{strong correlation}$ between  $X_1$ and $X_2$.
+
+We can check that by calculating the coefficient of correlation between $X_1$ and $X_2$.
+```{r}
+cor(X_1,X_2)
+```
+We can see that the coefficient is close to 1, thus we validate what we have already said.
+
+### Question 5
+
+```{r}
+X_1 <- rnorm(n)
+X_2 <- 3*X_1 + rnorm(n)
+Y <- X_1 + X_2 +2 + rnorm(n)
+model_1 <- lm(Y~X_1)
+summary(model_1)
+```
+
+We notice that $\beta_0 = 2.04333$ and $\beta_1 = 3.99842$ which are close to the true values 2 and 4 because we have:
+$$Y_{i} = X_{2,i} + X_{1.i} + 2 + \epsilon_{3,i} = 4X_{1,i} + 2 + \epsilon_{4,i}$$
+and $\epsilon_{4,i}$ is $\mathcal{N}(0,2)$
+
+
+```{r}
+sigma_squared_1 <- (summary(model_1)$sigma)**2
+sigma_squared_1
+```
+
+We notice that it is close to the true value 2.
+
+```{r}
+model_2 <- lm(Y~X_2)
+summary(model_2)
+```
+
+We notice that $\beta_0 = 2.07431$ and $\beta_2 = 1.30435$ which are close to the true values 2 and $\frac{4}{3}$  because we have 
+$$Y_{i} = X_{2,i} + X_{1.i} + 2 + \epsilon_{3,i} = \frac{4}{3}X_{2,i} + 2 + \epsilon_{5,i}$$
+and $\epsilon_{5,i}$ is $\mathcal{N}(0,\frac{10}{9})$
+
+```{r}
+sigma_squared_2 <- (summary(model_2)$sigma)**2
+sigma_squared_2
+```
+
+
+
+```{r}
+#New simulation
+set.seed(3)
+m <- 10
+X_1_n <- rnorm(m)
+X_2_n <- 3*X_1_n + rnorm(m)
+Y_n <- X_2_n + X_1_n + 2 + rnorm(m)
+
+model_1_n <- lm(Y_n~X_1_n)
+summary(model_1_n)
+```
+We notice that the value of $\beta_0$ has a large margin of error.
+
+```{r}
+sigma_squared_1 <- (summary(model_1_n)$sigma)**2
+sigma_squared_1
+```
+The same with $\sigma$ which is different from the true one.
+```{r}
+model_2_n <- lm(Y_n~X_2_n)
+summary(model_2_n)
+```
+
+```{r}
+sigma_squared_2 <- (summary(model_2)$sigma)**2
+sigma_squared_2
+```
+We notice that the values of parameters are too away from the true ones. This is due to the sample size of the data that is $\textbf{too small which underfit our model}$.
+
+### Question 6
+```{r}
+last_model <- lm(Y_n ~ X_1_n + X_2_n)
+summary(last_model)
+```
+We notice that the values of the coefficients are now too away from the true ones. Thus our $\beta$ weights are meaningless with huge errors.
+
+$\textbf{Explanation:}$
+
+We have seen in question 4 that the correlation between $X_1$ and $X_2$ is very strong , then the new model can't tease apart whether $X_1$ or $X_2$ is explaining our dependent variable $Y$.
+
+In that case, when we have the coefficient of correlation too big > 0.6, our choice should be either combining our two predictors into a single index or dropping the least important one.
+
+## Part 2 : Analysis of prostate cancer data
+### 1. Preliminary analysis of the data
+```{r}
+prostateCancer <- read.table("./prostate.data", header=T)
+attach(prostateCancer)
+pro <- prostateCancer[-10]
+pairs(pro, col = 'blue')
+```
+
+According to the scatterplots displayed, the variables which are the most correlated to $\texttt{lcavol}$ are $\texttt{lcp}$ and $\texttt{lpsa}$, $\textbf{since the clouds of points for those variables are more dense and have a linear trend}$.
+
+### 2. Linear regression
+Let's take $X_i$ where $i \in [1,8]$ and each $X_i$ is associated to one of the variables $\{\texttt{lpsa}, \texttt{lweight}, \texttt{age}, \texttt{lbph}, \texttt{svi}, \texttt{lcp},$
+$\texttt{gleason}, \texttt{pgg45}\}$. Let's consider $Y$ as a variable associated to our goal $\texttt{lcavol}$. Therefore the linear regression model has the form : 
+$$\boxed{Y = \beta_0 + \sum_{i=1}^{8} \beta_i X_i + \epsilon}$$
+```{r}
+#a/regression model
+pro$gleason<-factor(pro$gleason)
+pro$svi<-factor(pro$svi)
+reg <- lm(lcavol ~ ., data = pro)
+summary(reg)
+```
+We have that variable $\texttt{svi}$ contains 2 levels, so the coefficient $b_1 = -0.220419$ of $\texttt{svi1}$ is there if  the qualitative value is equal to 1.
+Thus we have the following model for $\texttt{svi}$:
+
+$\beta_0 + b_1$ if $\texttt{svi}$ is equal to 1 and $\beta_0$ if $\texttt{svi}$ is equal to 0.
+
+In the case of $\texttt{gleason}$, we have 4 levels : 
+```{r}
+levels(pro$gleason)
+```
+
+Thus our new model for $\texttt{gleason}$ is :
+$\beta_0 + b_7 + b_8 + b_9$ if gleason is equal to 9, $\beta_0 + b_7 + b_8$ if gleason is equal to 8, $\beta_0 + b_7$ if gleason is equal to 6, and $\beta_0$ if gleason is equal to 6.
+
+With $b_7$ is the coefficient for $\texttt{gleason7}$, $b_8$ is the coefficient for $\texttt{gleason8}$ and $b_9$ is the coefficient for $\texttt{gleason9}$.
+
+$\textbf{Results of the regression :}$
+
+There is $\textbf{a significative effect of the predictors}$ on the logarithm of the tumor volume $\texttt{lcavol}$ because the p-value of the F-test is 2.2e-16, which is significant.
+
+Once the other predictors has been accounted for, the $\texttt{lcp}$ and the $\texttt{lpsa}$ still has a significative effect on the $\texttt{lcavol}$ because their p-values of the t-test are 8.58e-06 and 2.94e-08 respectively. However, once these 2 predictors $\texttt{lpsa}$ and $\texttt{lcp}$ has been accounted for,  there is no additional effect of the other predictors unless we accept a large enough type I error.
+
+These remarks are accurate with what we have said in the previous question by analyzing the correlation between variables.
+```{r}
+#b/confidence intervals
+confint(reg, level = 0.95)
+```
+We should see whether the expected null value is within the confidence intervals or not, if it is not, we can reject the null hypothesis at the corresponding level of $\alpha = 0.05$ in our case.
+
+So, we notice that the predictors $\texttt{lweight}$, $\texttt{lbph}$, $\texttt{svi1}$, $\texttt{gleason}$ contains 0 in their CI so we cannot reject the null hypothesis thus these predictors $\textbf{will not add any effect}$ on the $\texttt{lcavol}$. 
+
+In the other side, the predictors $\texttt{age}$, $\texttt{lcp}$, $\texttt{pgg45}$ and $\texttt{lpsa}$ are required for this regression for $\alpha = 0.05$. We can see that also in the p-value of the t-test for these variables which is less than 0.05.
+ 
+$\textbf{c)}$ The p-value of the t-test for the predictor $\texttt{lpsa}$ is small enough (2.94e-08) and the confidence interval does not contain 0 and very significant [0.370473639, 0.7286725619], thus we can reject the null hypothesis for this predictor. Then $\texttt{lpsa}$ is a strong predictor for the logarithm of the tumor volume $\texttt{lcavol}$.
+
+
+```{r}
+#d/plot
+plot(x = lcavol, y = reg$fitted.values, xlab = "Actual values", ylab = "Predicted values"
+     , main ="Predicted values of lcavol as a function of the actual values")
+```
+
+The scatter plot has a $\textbf{linear trend}$, which shows that the prediction is $\textbf{globally good}$ but contains some errors visible thanks to the distance between the points.
+
+```{r}
+#histogram of residuals
+hist(reg$residuals, main="Histogram of Residuals",ylab="Residuals")
+
+```
+
+In view of the histogram obtained we can  admit that the residuals $\textbf{are normally distributed}$. To ensure this result, we use the following code : 
+
+```{r}
+#Normal distribution of residuals
+qqnorm(reg$residuals)
+qqline(reg$residuals)
+```
+
+The distribution of residuals fit the $\texttt{qqline}$ plotted. This confirms the hypothesis that $\textbf{the residuals are normally}$ $\textbf{distributed}$. 
+```{r}
+#RSS : residual sum of squares
+deviance(reg)
+sum(reg$resid^2)
+```
+
+$\textbf{e)}$ The residuals obtained respect a normal distribution and the RSS of the model is acceptable. However, too many variables are not essential to the prediction which tends $\textbf{to reduce the efficiency of the model}$.
+
+```{r}
+#f/removing lpsa and lcp from the model
+new_reg <- lm(lcavol ~ lweight+age+lbph+svi+gleason+pgg45, data = pro)
+summary(new_reg)
+```
+By removing the two most significant predictors, the p-value of the F-est decreases, which proves that the model is no longer as efficient as it was. Above all, new predictors become significant in the prediction and this is due to the fact that the model tries to adapt to the new data to predict $\texttt{lcavol}$. This prediction remains however less effective, and $\textbf{the choice of the subset of predictors is thus bad in this case}$.
+
+### 3. Best subset selection :
+```{r}
+reg1 <- lm(lcavol~1, data=pro)
+summary(reg1)
+deviance(reg1)
+```
+```{r}
+reg2 <- lm(lcavol~., data=pro[,c(1,4,9)])
+reg2Out <- capture.output(summary(reg2))
+grep("^F-stat", reg2Out, value = TRUE)
+deviance(reg2)
+```
+```{r}
+reg3 <- lm(lcavol~., data=pro[,c(1,2,9)])
+reg3Out <- capture.output(summary(reg3))
+grep("^F-stat", reg3Out, value = TRUE)
+deviance(reg3)
+```
+The three models have an F-test p-value of the same order, which suggests that the prediction they make is relevant. However, we notice a difference in the residual sum of squares, and in this area the 2nd model is the most efficient with the rather small residual sum of squares. Also, the RSS is much bigger in the case where we have 0 predictors, which makes sense.
+
+```{r}
+#b/RSS for all models of size 2
+combi <- combn(2:9,2)
+m <- length(combi)/2
+for(i in 1:m){
+  reg <- lm(lcavol~., data=pro[,c(1,combi[1,i],combi[2,i])])
+  cat("For predictors : ",names(pro)[combi[1,i]]," and ",names(pro)[combi[2,i]],
+      ", RSS = ", deviance(reg), "\n")
+}
+```
+According tho this result, $\textbf{the minimal residual sum of squares for a model of size k=2}$ is obtained with the $\textbf{two predictors}$ $\texttt{lpsa}$ $\textbf{and}$ $\texttt{lcp}$. This is what we are going to confirm thanks to the following functions which generalize the selection for a model of size $k \in \{0,...,8\}$.
+
+```{r}
+#Minimum RSS for all models of size k 
+
+#This functions allows the creation of a vector of combination 
+#of predictors that will be used later in the linear regression
+#k : size of the model, p : combination's number
+vector_creation <- function(k,p){
+  n <- length(names(pro))
+  #This combination excludes the selection of "lcavol" as a predictor
+  combi <- combn(2:n,k)
+  vector <- c(1)
+  for (i in 1:k){
+    vector <- c(vector, c(combi[i,p]))
+  }
+  return(vector)
+}
+
+#This function allows the creation of a vector of predictors corresponding 
+#to the predictors selected in the linear regression by the use of 
+#the function vector_creation defined above.
+#k,p : same as earlier
+predictors_creation <- function(k,p){
+  predictors <- c()
+  vector <- vector_creation(k,p)
+  for (i in 1:k){
+    predictors <- c(predictors, c(vector[i+1]))
+  }
+  return(predictors)
+}
+
+#This function will compare the RSS of all combinations of k predictors
+#It will then return he minimal RSS and the predictors that are associated 
+#to for a given size k.
+#The function uses the functions defined above
+choose_predictors <- function(k){
+  n <- length(names(pro))
+  #We treat the extreme values first
+  if(k == 0){
+    reg <- lm(lcavol~1, data=pro)
+    return(c(deviance(reg)))
+  }
+  if (k == n-1){
+    reg <- lm(lcavol~., data=pro)
+    predictors <- c(2)
+    for (i in 3:n){
+      predictors <- c(predictors, c(i))
+    }
+    return(c(deviance(reg), predictors))
+  }
+  else{
+  combi <- combn(2:n,k)
+  m <- length(combi)/k
+  min <- deviance(lm(lcavol~., data=pro[,vector_creation(k,1)]))
+  predictors <- predictors_creation(k,1)
+  for (i in 2:m){
+    reg <- lm(lcavol~., data=pro[,vector_creation(k,i)])
+    if (deviance(reg)<min){
+      min <- deviance(reg)
+      predictors <- predictors_creation(k,i)
+  }
+  }
+  return(c(min, predictors))
+  }
+}
+#In our case, to determine the best selection of predictors
+#in a model of size k = 2
+print(c(choose_predictors(2)[1], names(pro)[choose_predictors(2)[2:3]]), quote = FALSE)
+```
+The result obtained here confirms what we did "by hand" for $k =2$ above. These defined functions will allow an easier study on models of arbitrary size k. Thus, $\textbf{the best choice of 2 predictors among 8 is}$ $\{\texttt{lcp}, \texttt{lpsa}\}$.
+
+```{r}
+#c/Display the predictors for each size of model 
+{
+cat("if k =",0,":\n")
+print(choose_predictors(0))
+for (k in 1:8){
+  cat("if k =",k,":\n")
+  print(c(choose_predictors(k)[1], names(pro)[choose_predictors(k)[2:(k+1)]]), quote = FALSE)
+} 
+}
+
+```
+
+This result gives us $\textbf{the set of predictors that minimizes the residual sum of squares}$ for each $k\in \{0,...,8\}$, as well as the corresponding RSS.
+
+```{r}
+#plot
+choices <- c(choose_predictors(0)[1])
+for (i in 1:8){
+  choices <- c(choices,c(choose_predictors(i)[1]))
+}
+
+plot(0:8, choices, xlab = "Number of predictors k", ylab = "Minimum RSS associated to each k",
+     main = "Residual sum of squares as a function of k", type ="b", col ="red", 
+     ylim = c(20,140))
+```
+
+We notice that $\textbf{the RSS decreases with the increase in the number of predictors k}$. This decrease is all the more noticeable when going from 0 to 2 predictors, then we notice a slight decrease between 3 and 8 predictors. The fact of having a large RSS for 0 predictor is also notable but remains consistent with the linear regression model since the model is struggling to fit the data without predictors in this case.
+
+$\textbf{d/}$ Increasing the number of predictors in the model tends to lower its RSS. This result may seem suitable for deciding on the optimality of a selection of a number of predictors, but in reality it is not. Indeed, we expose ourselves to $\textbf{the risk of overfitting}$ where the MSE may increase over a set of tests while the training error decreases, since the model is tested on the same data set that it has been trained on. Given that here we don't have access to the MSE on a test set different from the training set, it is difficult to choose an "optimal" number of predictors and it is necessary to resort to the split-validation technique, which is the subject of the next part.
+
+### 4. Split-validation :
+$\textbf{a)}$ The split-validation technique consists of the decomposition of the starting data set into two distinct sets: the training set where the prediction thanks to the linear regression is carried out, and the test set where this prediction is tested on values that did not contribute to the prediction. This is what avoids the problem encountered above and allows us to calculate the MSE on a new set and thus judge the optimality of a model.
+
+```{r}
+#The validation set 
+valid = (1:97) %% 3 == 0
+```
+
+$\textbf{b)}$ We have now a training model for 2 predictors $\texttt{lcp}$ and $\texttt{lpsa}$, that allows to have the best model of size 2 according to what we did earlier.
+```{r}
+y_training <- lm(lcavol ~ ., data=prostateCancer[!valid, c(1,6, 9)])
+summary(y_training)
+```
+By using the function $$\texttt{lm(lcavol ~., data=prostateCancer[!valid, c(1,
+6, 9)])}$$ an estimate of $\texttt{lcavol}$ is made on the training set data using the predictors at position 6 and 9. Moreover, we see in the summary that the 2 predictors chosen as "best selection" for this size of model are indeed significant in the prediction of $\texttt{lcavol}$.
+
+$\textbf{The training error:}$
+```{r}
+#Training error
+y_hat <- predict(y_training, prostateCancer[!valid, c(1,6, 9)])
+train.err <- mean((prostateCancer[!valid,1]-y_hat)^2)
+print(paste(train.err, "is the mean training error for the model"), quote = FALSE) 
+```
+$\textbf{c) The validation set and the test error:}$
+```{r}
+#Predicting values of lcavol on the validation set 
+y_predicted <- predict(y_training, newdata = prostateCancer[valid, c(1,6,9)])
+#test error
+test_error <- mean((prostateCancer[valid,1]-y_predicted)^2)
+print(paste(test_error, "is the mean test error for the model"), quote = FALSE) 
+```
+We notice first that $\textbf{the test error is bigger than the training error}$, because the old data (training one) has already been trained by the model, and the test error was for a new data.
+We notice also that the marge between these 2 errors are not too big , so we can conclude that our prediction $\textbf{is acceptable}$.
+
+$\textbf{d)}$
+```{r}
+#Training error for set of predictors x and validation set valid_set 
+T_error <- function(x, valid_set){
+  if(length(x)==0){
+    y <- lm(lcavol ~ 1, data=prostateCancer[!valid_set,])
+    y_hat <- predict(y, prostateCancer[!valid_set,NULL])
+    training_error <- mean((prostateCancer[!valid_set,1]-y_hat)^2)
+    return (training_error)
+  }
+  else{
+    y <- lm(lcavol ~ ., data=prostateCancer[!valid_set, c(1,x)])
+    y_hat <- predict(y, data=prostateCancer[!valid_set, c(1,x)])
+    training_error <- mean((prostateCancer[!valid_set,1]-y_hat)^2)
+    return(training_error)
+  }
+}
+
+#prediction error for set of predictors x and validation set valid_set
+P_error <- function(x, valid_set){
+  if(length(x)==0){
+    y <- lm(lcavol ~ 1, data=prostateCancer[!valid_set,])
+    y_hat <- predict(y, prostateCancer[valid_set,NULL])
+    test_error <- mean((prostateCancer[valid_set,1]-y_hat)^2)
+    return (test_error)
+  }
+  else{
+    y <- lm(lcavol ~ ., data=prostateCancer[!valid_set, c(1,x)])
+    y_hat <- predict(y, newdata = prostateCancer[valid_set, c(1,x)])
+    test_error <- mean((prostateCancer[valid_set,1]-y_hat)^2)
+    return (test_error)
+  }
+}
+
+#This function plots the training and prediction errors for the 9 models
+#selected before given a certain validation set valid_set
+display_errors <- function(valid_set){
+  
+  training_errors <- c(T_error(NULL, valid_set))
+  prediction_errors <- c(P_error(NULL, valid_set))
+  for (k in 1:8){
+    training_errors <- c(training_errors, T_error(choose_predictors(k)[2:(k+1)], valid_set))
+    prediction_errors <- c(prediction_errors, P_error(choose_predictors(k)[2:(k+1)], valid_set))
+  }
+
+plot(0:8, training_errors, xlab = "Number of predictors k", ylab = "Error", 
+     main = "Training and prediction errors as a function of k", type ="b", col ="red")
+
+points(0:8, prediction_errors, type ="b", col ="blue")
+
+legend(x="topright", legend=c("Prediction error","Training error"), 
+       col=c("blue","red"), lwd=c(3,3))
+
+}
+
+display_errors(valid)
+
+```
+
+According to this new study, the best model to choose would be the one with $\textbf{the minimum prediction error}$, namely the model where $\textbf{the number of predictors is equal to 5}$. As a reminder, the choice of the 5 predictors with the corresponding minimum RSS is the following :
+```{r}
+print(c(choose_predictors(5)[1], names(pro)[choose_predictors(5)[2:6]]), quote = FALSE)
+```
+
+The parameters estimates for this model :
+
+```{r}
+reg_5 <- lm(lcavol~.,data=prostateCancer[,choose_predictors(5)[2:6]])
+summary(reg_5)$coefficients[,1]
+```
+
+Moreover, we observe the overfitting problem feared earlier: from a certain level of complexity of the problem (high number of predictors), $\textbf{the prediction error seems to increase}$.
+
+$\textbf{e/}$ We notice two phenomena on the representation of errors. First the training error increases for a value of $k = 5$ contrary to what it is supposed to do, this can be explained by the choice of a $\textbf{too large validation set}$ which restricts the size of the training set and thus the data trained on. Moreover, the $\textbf{overfitting phenomenon}$ is not very visible (the increase in the prediction error is not remarkable), and this can be explained first by the choice of a validation set that is too large but also by the fact that there are not a lot of predictors in the study. This underlines the major problem of the split-validation technique: $\textbf{if the validation set is not carefully chosen, anomalies can appear on observation.}$
+
+To illustrate this, let's consider another validation set corresponding to indices that are multiples of 5 in data set (in this configuration $n_v \approx 0.2n$):
+```{r}
+valid_5 = (1:97) %% 5 == 0
+display_errors(valid_5)
+```
+
+For this choice of validation set, the training error is a decreasing function with complexity and the prediction error increases even more with complexity. Furthermore, the best choice here would be the size 6 model.
+
+Consider an even smaller validation set, multiples of 6 ($n_v \approx 0.16n$): 
+```{r}
+valid_6 = (1:97) %% 6 == 0
+display_errors(valid_6)
+```
+
+The remarks made above are even more visible here, which ends up showing $\textbf{the importance and the impact}$ $\textbf{of the choice of the validation set}$ for the split-validation technique. Which makes it at the same time $\textbf{its major limitation}$. To overcome this, let's take a look at the cross-validation technique:
+```{r}
+#K-fold cross-validation
+#Computes the training error for the cross-validation
+cv_train_error <- function(x, folds){
+  train_errors <- c()
+  m <- ceiling(length(lcavol)/folds) 
+  for (i in 1:folds){
+    valid_set <- (1:97) %in% ((1+m*(i-1)):(m*i))
+    train_errors <- c(train_errors, T_error(x, valid_set))
+  }
+  return(mean(train_errors))
+}
+
+#Computes the prediction error for the cross-validation
+cv_predic_error <- function(x, folds){
+  predic_errors <- c()
+  m <- ceiling(length(lcavol)/folds)
+  for (i in 1:folds){
+    valid_set <- (1:97) %in% ((1+m*(i-1)):(m*i))
+    predic_errors <- c(predic_errors, P_error(x, valid_set))
+  }
+  return(mean(predic_errors))
+}
+
+#display the errors for the 9 models 
+cv_display_errors <- function(folds){
+  
+  training_errors <- c(cv_train_error(NULL, folds))
+  prediction_errors <- c(cv_predic_error(NULL, folds))
+  for (k in 1:8){
+    training_errors <- c(training_errors, cv_train_error(choose_predictors(k)[2:(k+1)], folds))
+    
+    prediction_errors <- c(prediction_errors, cv_predic_error(choose_predictors(k)[2:(k+1)], folds))
+  }
+  
+plot(0:8, training_errors, xlab = "Number of predictors k", ylab = "Error", 
+     main = "Training and prediction errors as a function of k", 
+     type ="b", col ="red")
+
+points(0:8, prediction_errors, type ="b", col ="blue")
+
+legend(x="topright", legend=c("Prediction error","Training error"), 
+       col=c("blue","red"), lwd=c(3,3))
+}
+```
+Let's test the results for some values of $folds = K$.
+```{r}
+#For a small value 
+cv_display_errors(3)
+```
+
+By dividing the data set into 3 parts, we train the data on $\frac{2}{3}$ of the set and test it on $\frac{1}{3}$. The training error decreases according to the complexity and the prediction error reaches a minimum for $k=5$ then increases. Some irregularities are to be noticed for the training error (increase at one time) but this is due to the fact that the validation set is too large in each iteration.
+```{r}
+#For a common K-folds value
+cv_display_errors(10)
+```
+
+For $K = 10$, the training error decreases over time and the prediction error does the same until a certain point where it begins to increase, which is an expected behavior. The minimum is reached for $k=5$.
+
+```{r}
+#Leave-one-out
+cv_display_errors(97)
+```
+
+Here, at each iteration the test is done on a single datum. The training error trend is normal since the training is done on a large set at each iteration. The prediction error reaches its minimum at $k=6$ before increasing.
+
+Overall, despite the choice of K, $\textbf{the minimum prediction error is reached for k=5 or k=6 generally}$. Let's verify it by printing the predictors that give the minimum prediction error for some interesting values of K-folds between 2 and 10 :
+```{r}
+errors <- c()
+for (folds in 2:10){
+  minimum_error <- cv_predic_error(NULL, folds)
+  minimum_predictors <- NULL
+  for (k in 1:8){
+    prediction_error <- cv_predic_error(choose_predictors(k)[2:(k+1)], folds)
+    if (prediction_error < minimum_error){
+       minimum_error <- prediction_error
+       minimum_predictors <- names(pro)[choose_predictors(k)[2:(k+1)]]
+    }
+  }
+  errors <- c(errors, minimum_error)
+  cat("For K  = ",folds , " : ", minimum_predictors, ", of size = ", length(minimum_predictors), "\n")
+}
+```
+Moreover, wee see this result in the following plot that shows the minimum prediction error among all models (in terms of sizes) for each number of folds between 2 and 10: 
+```{r}
+
+plot(2:10, errors, xlab = "Number of folds", ylab = "Prediction error", 
+     main = "The mimimum prediction error among all models for each number of folds"
+     , xlim = c(1,11) )
+text(2, errors[1], labels="size = 5", col = "red")
+text(3, errors[2], labels="size = 5", col = "red")
+text(4, errors[3], labels="size = 6", col = "blue")
+text(5, errors[4], labels="size = 6", col = "blue")
+text(6, errors[5], labels="size = 6", col = "blue")
+text(7, errors[6], labels="size = 4", col = "green")
+text(8, errors[7], labels="size = 3", col = "orange")
+text(9, errors[8], labels="size = 5", col = "red")
+text(10, errors[9], labels="size = 5", col = "red")
+
+```
+
+For instance, if the number of folds is 3, $\textbf{the minimum prediction error is obtained from the size 5 model}$. 
+
+### 5. Conclusion : 
+We started by basing ourselves on the RSS to select a model but we quickly realized that this selection was biased due to the fact that $\textbf{the prediction error was not taken into account}$. We then used the split-validation technique, where we determined the 5-predictor model as the best fit (due to its minimal prediction error) for the considered validation set. But certain anomalies at the level of training error and prediction error, due to $\textbf{the choice of the validation set}$, led us to take an interest in the cross-validation technique which made it possible to correct the anomalies encountered and also to confirm the choice of the size 5 model, which usually gives the minimum prediction error and stays pretty close to the size 6 model for the most part. $\textbf{We therefore choose the size 5 model as the best model to predict}$ $\texttt{lcavol}$.
+
+```{r}
+#Application
+last_reg <- lm(lcavol~.,data=prostateCancer[,choose_predictors(5)[2:6]])
+summary(last_reg)
+```
+The p-value of the F-test shows that the prediction made by this model is correct, and the residual errors seem small. Moreover, this model uses two very significant variables in the prediction of $\texttt{lcavol}$: $\texttt{lpsa}$ and $\texttt{lcp}$.
